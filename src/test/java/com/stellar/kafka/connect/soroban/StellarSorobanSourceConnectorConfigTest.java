@@ -22,4 +22,18 @@ class StellarSorobanSourceConnectorConfigTest {
         StellarSorobanSourceConnectorConfig config = new StellarSorobanSourceConnectorConfig(TestSupport.props());
         assertEquals(List.of("contract"), config.eventTypes());
     }
+
+    @Test
+    void rejectsTooManyTopicSegments() {
+        Map<String, String> props = TestSupport.props();
+        props.put(StellarSorobanSourceConnectorConfig.TOPIC_FILTERS, "a,b,c,d,e");
+        assertThrows(ConfigException.class, () -> new StellarSorobanSourceConnectorConfig(props));
+    }
+
+    @Test
+    void rejectsTooManyContractIds() {
+        Map<String, String> props = TestSupport.props();
+        props.put(StellarSorobanSourceConnectorConfig.CONTRACT_IDS, "c1,c2,c3,c4,c5,c6");
+        assertThrows(ConfigException.class, () -> new StellarSorobanSourceConnectorConfig(props));
+    }
 }

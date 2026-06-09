@@ -58,7 +58,8 @@ public final class HttpStellarRpcClient implements StellarRpcClient {
             }
             if (!request.filter().topicFilters().isEmpty()) {
                 ArrayNode topics = filter.putArray("topics");
-                request.filter().topicFilters().forEach(topics::add);
+                ArrayNode topic = topics.addArray();
+                request.filter().topicFilters().forEach(topic::add);
             }
         }
 

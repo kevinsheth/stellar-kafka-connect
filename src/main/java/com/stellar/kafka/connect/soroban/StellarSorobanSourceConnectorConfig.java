@@ -115,6 +115,12 @@ public final class StellarSorobanSourceConnectorConfig extends AbstractConfig {
                 throw new ConfigException(EVENT_TYPES, eventType, "must be one of " + EVENT_TYPES_ALLOWED);
             }
         }
+        if (contractIds().size() > 5) {
+            throw new ConfigException(CONTRACT_IDS, contractIds(), "must contain at most 5 contract IDs");
+        }
+        if (topicFilters().size() > 4) {
+            throw new ConfigException(TOPIC_FILTERS, topicFilters(), "must contain at most 4 segment matchers");
+        }
         String start = startLedger();
         if (!"latest".equals(start)) {
             try {

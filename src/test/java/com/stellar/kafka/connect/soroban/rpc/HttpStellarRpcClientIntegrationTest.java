@@ -21,7 +21,7 @@ class HttpStellarRpcClientIntegrationTest {
             HttpStellarRpcClient client = new HttpStellarRpcClient(server.url("/rpc").toString(), Duration.ofSeconds(10), mapper);
 
             GetEventsResponse response = client.getEvents(new GetEventsRequest(100, 109, 1000,
-                    new EventFilter(List.of("CABC"), List.of("contract"), List.of())));
+                    new EventFilter(List.of("CABC"), List.of("contract"), List.of("AAAADwAAAANmZWU="))));
 
             assertEquals(1, response.events().size());
             assertEquals("0000000000000000100-0000000007", response.events().get(0).id());
@@ -34,6 +34,8 @@ class HttpStellarRpcClientIntegrationTest {
             var request = mapper.readTree(server.takeRequest().getBody().readUtf8());
             assertEquals("getEvents", request.get("method").asText());
             assertEquals(110, request.path("params").path("endLedger").asInt());
+            assertEquals("AAAADwAAAANmZWU=", request.path("params").path("filters").get(0)
+                    .path("topics").get(0).get(0).asText());
         }
     }
 
