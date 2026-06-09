@@ -13,6 +13,9 @@ public final class PollPlanner {
         return Optional.of(new PollPlan(start, end, maxRecordsPerPoll));
     }
 
+    public record PollPlan(long startLedger, long endLedgerInclusive, int maxRecords) {
+    }
+
     private long initialStart(String configuredStartLedger, long latestLedger) {
         if ("latest".equals(configuredStartLedger)) {
             return latestLedger;

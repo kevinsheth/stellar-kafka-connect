@@ -1,7 +1,7 @@
 {
   "connector.class": "com.stellar.kafka.connect.soroban.StellarSorobanSourceConnector",
   "tasks.max": "1",
-  "stellar.rpc.url": "http://stellar:8000/rpc",
+  "stellar.rpc.url": "https://soroban-testnet.stellar.org",
   "stellar.network": "testnet",
   "stellar.start.ledger": "latest",
   "stellar.event.types": "contract",

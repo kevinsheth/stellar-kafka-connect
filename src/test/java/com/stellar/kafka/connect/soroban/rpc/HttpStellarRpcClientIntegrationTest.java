@@ -17,17 +17,23 @@ class HttpStellarRpcClientIntegrationTest {
     @Test
     void readsEventsFromMockRpc() throws Exception {
         try (MockWebServer server = new MockWebServer()) {
-            server.enqueue(json("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"events\":[{\"ledger\":100,\"txHash\":\"tx1\",\"contractId\":\"CABC\",\"eventIndex\":0,\"type\":\"contract\",\"topics\":[],\"value\":{\"x\":1},\"cursor\":\"c1\"}],\"cursor\":\"c1\"}}"));
+            server.enqueue(json("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"events\":[{\"ledger\":100,\"ledgerClosedAt\":\"2026-06-09T11:51:37Z\",\"txHash\":\"tx1\",\"contractId\":\"CABC\",\"id\":\"0000000000000000100-0000000007\",\"type\":\"contract\",\"topic\":[\"AAAADwAAAANmZWU=\"],\"value\":{\"x\":1},\"cursor\":\"c1\"}],\"cursor\":\"c1\"}}"));
             HttpStellarRpcClient client = new HttpStellarRpcClient(server.url("/rpc").toString(), Duration.ofSeconds(10), mapper);
 
             GetEventsResponse response = client.getEvents(new GetEventsRequest(100, 109, 1000,
                     new EventFilter(List.of("CABC"), List.of("contract"), List.of())));
 
             assertEquals(1, response.events().size());
+            assertEquals("0000000000000000100-0000000007", response.events().get(0).id());
             assertEquals(100L, response.events().get(0).ledger());
+            assertEquals(7, response.events().get(0).eventIndex());
             assertEquals("tx1", response.events().get(0).txHash());
+            assertEquals(1, response.events().get(0).topics().size());
+            assertEquals("2026-06-09T11:51:37Z", response.events().get(0).closedAt().orElseThrow().toString());
             assertEquals("c1", response.cursor().orElseThrow());
-            assertEquals("getEvents", mapper.readTree(server.takeRequest().getBody().readUtf8()).get("method").asText());
+            var request = mapper.readTree(server.takeRequest().getBody().readUtf8());
+            assertEquals("getEvents", request.get("method").asText());
+            assertEquals(110, request.path("params").path("endLedger").asInt());
         }
     }
 

@@ -10,14 +10,14 @@ class PollPlannerTest {
 
     @Test
     void boundsLedgerRange() {
-        PollPlan plan = planner.plan(99L, 200L, "latest", 10, 1000).orElseThrow();
+        PollPlanner.PollPlan plan = planner.plan(99L, 200L, "latest", 10, 1000).orElseThrow();
         assertEquals(100L, plan.startLedger());
         assertEquals(109L, plan.endLedgerInclusive());
     }
 
     @Test
     void startsAtLatestWhenConfigured() {
-        PollPlan plan = planner.plan(null, 200L, "latest", 10, 1000).orElseThrow();
+        PollPlanner.PollPlan plan = planner.plan(null, 200L, "latest", 10, 1000).orElseThrow();
         assertEquals(200L, plan.startLedger());
         assertEquals(200L, plan.endLedgerInclusive());
     }

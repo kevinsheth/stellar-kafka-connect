@@ -24,9 +24,6 @@ public final class StellarSorobanSourceConnector extends SourceConnector {
 
     @Override
     public List<Map<String, String>> taskConfigs(int maxTasks) {
-        if (maxTasks < 1) {
-            return List.of();
-        }
         List<Map<String, String>> configs = new ArrayList<>(1);
         configs.add(props);
         return configs;
@@ -43,6 +40,6 @@ public final class StellarSorobanSourceConnector extends SourceConnector {
 
     @Override
     public String version() {
-        return Version.VERSION;
+        return Version.getVersion();
     }
 }

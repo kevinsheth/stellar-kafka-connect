@@ -45,7 +45,7 @@ public final class HttpStellarRpcClient implements StellarRpcClient {
     public GetEventsResponse getEvents(GetEventsRequest request) throws RpcException {
         ObjectNode params = mapper.createObjectNode();
         params.put("startLedger", request.startLedger());
-        params.put("endLedger", request.endLedgerInclusive());
+        params.put("endLedger", request.endLedgerInclusive() + 1);
         ObjectNode pagination = params.putObject("pagination");
         pagination.put("limit", request.limit());
         ArrayNode filters = params.putArray("filters");
@@ -130,17 +130,33 @@ public final class HttpStellarRpcClient implements StellarRpcClient {
     }
 
     private SorobanEvent toEvent(JsonNode raw) {
+        String id = raw.path("id").asText("");
         long ledger = raw.path("ledger").asLong(raw.path("ledgerNumber").asLong());
         String txHash = raw.path("txHash").asText(raw.path("transactionHash").asText(""));
         String contractId = raw.path("contractId").asText(null);
-        int eventIndex = raw.path("eventIndex").asInt(raw.path("id").asInt(0));
+        int eventIndex = raw.path("eventIndex").isInt() ? raw.path("eventIndex").asInt() : eventIndexFromId(id);
         String eventType = raw.path("type").asText(raw.path("eventType").asText("contract"));
         List<JsonNode> topics = new ArrayList<>();
-        raw.path("topics").forEach(topics::add);
+        JsonNode topic = raw.has("topic") ? raw.path("topic") : raw.path("topics");
+        topic.forEach(topics::add);
         JsonNode value = raw.path("value");
         Optional<String> pagingToken = Optional.ofNullable(raw.path("pagingToken").textValue())
                 .or(() -> Optional.ofNullable(raw.path("cursor").textValue()));
-        Optional<Instant> closedAt = Optional.ofNullable(raw.path("closedAt").textValue()).map(Instant::parse);
-        return new SorobanEvent(ledger, txHash, contractId, eventIndex, eventType, topics, value, pagingToken, closedAt, raw);
+        Optional<Instant> closedAt = Optional.ofNullable(raw.path("closedAt").textValue())
+                .or(() -> Optional.ofNullable(raw.path("ledgerClosedAt").textValue()))
+                .map(Instant::parse);
+        return new SorobanEvent(id, ledger, txHash, contractId, eventIndex, eventType, topics, value, pagingToken, closedAt, raw);
+    }
+
+    private int eventIndexFromId(String id) {
+        int separator = id.lastIndexOf('-');
+        if (separator < 0 || separator == id.length() - 1) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(id.substring(separator + 1));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

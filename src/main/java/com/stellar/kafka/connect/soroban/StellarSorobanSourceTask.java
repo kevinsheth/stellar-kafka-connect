@@ -30,39 +30,44 @@ public class StellarSorobanSourceTask extends SourceTask {
     private final ObjectMapper objectMapper;
     private final PollPlanner pollPlanner;
     private final Retry retry;
-    private final MetricsHooks metrics;
     private StellarRpcClient rpcClient;
     private StellarSorobanSourceConnectorConfig config;
     private EventMapper eventMapper;
     private Map<String, Object> sourcePartition;
     private boolean ownsClient;
     private Long nextLedgerOverride;
+    private volatile boolean stopped;
 
     public StellarSorobanSourceTask() {
-        this(new ObjectMapper(), new PollPlanner(), new Retry(), MetricsHooks.noop(), null);
+        this(new ObjectMapper(), new PollPlanner(), new Retry(), null);
         this.ownsClient = true;
     }
 
-    StellarSorobanSourceTask(ObjectMapper objectMapper, PollPlanner pollPlanner, Retry retry,
-                             MetricsHooks metrics, StellarRpcClient rpcClient) {
+    StellarSorobanSourceTask(ObjectMapper objectMapper, PollPlanner pollPlanner, Retry retry, StellarRpcClient rpcClient) {
         this.objectMapper = objectMapper;
         this.pollPlanner = pollPlanner;
         this.retry = retry;
-        this.metrics = metrics;
         this.rpcClient = rpcClient;
         this.ownsClient = rpcClient == null;
     }
 
     @Override
     public String version() {
-        return Version.VERSION;
+        return Version.getVersion();
     }
 
     @Override
     public void start(Map<String, String> props) {
         this.config = new StellarSorobanSourceConnectorConfig(props);
         this.eventMapper = new EventMapper(objectMapper);
-        this.sourcePartition = Map.of("network", config.network(), "stream", STREAM);
+        this.sourcePartition = Map.of(
+                "network", config.network(),
+                "stream", STREAM,
+                "rpcUrl", config.rpcUrl(),
+                "contractIds", String.join(",", config.contractIds()),
+                "eventTypes", String.join(",", config.eventTypes()),
+                "topicFilters", String.join(",", config.topicFilters()));
+        this.stopped = false;
         if (rpcClient == null) {
             this.rpcClient = new HttpStellarRpcClient(config.rpcUrl(), Duration.ofMillis(config.requestTimeoutMs()), objectMapper);
         }
@@ -72,18 +77,16 @@ public class StellarSorobanSourceTask extends SourceTask {
 
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
-        metrics.pollStarted();
         Long lastProcessedLedger = lastProcessedLedger();
         try {
             long latest = retry.execute(config.retryMaxAttempts(), rpcClient::latestLedger);
-            Optional<PollPlan> maybePlan = pollPlanner.plan(effectiveLastProcessedLedger(lastProcessedLedger), latest, config.startLedger(),
+            Optional<PollPlanner.PollPlan> maybePlan = pollPlanner.plan(effectiveLastProcessedLedger(lastProcessedLedger), latest, config.startLedger(),
                     config.maxLedgersPerPoll(), config.maxRecordsPerPoll());
             if (maybePlan.isEmpty()) {
-                metrics.emptyPoll();
-                Thread.sleep(config.pollIntervalMs());
+                awaitNextPoll();
                 return List.of();
             }
-            PollPlan plan = maybePlan.get();
+            PollPlanner.PollPlan plan = maybePlan.get();
             GetEventsResponse response = retry.execute(config.retryMaxAttempts(), () -> rpcClient.getEvents(new GetEventsRequest(
                     plan.startLedger(), plan.endLedgerInclusive(), plan.maxRecords() + 1,
                     new EventFilter(config.contractIds(), config.eventTypes(), config.topicFilters()))));
@@ -92,39 +95,37 @@ public class StellarSorobanSourceTask extends SourceTask {
                     .sorted(Comparator.comparingLong(SorobanEvent::ledger).thenComparingInt(SorobanEvent::eventIndex))
                     .toList(), plan.maxRecords());
             if (bounded.isEmpty()) {
-                metrics.emptyPoll();
                 log.info("event=empty_poll network={} startLedger={} endLedger={} latestLedger={}",
                         config.network(), plan.startLedger(), plan.endLedgerInclusive(), latest);
                 nextLedgerOverride = plan.endLedgerInclusive() + 1;
-                Thread.sleep(config.pollIntervalMs());
+                awaitNextPoll();
                 return List.of();
             }
             List<SourceRecord> records = new ArrayList<>(bounded.size());
             for (SorobanEvent event : bounded) {
                 records.add(toSourceRecord(event));
             }
-            metrics.recordsReturned(records.size());
-            metrics.pollCompleted(plan.startLedger(), plan.endLedgerInclusive(), records.size());
             log.info("event=records_returned network={} startLedger={} endLedger={} records={}",
                     config.network(), plan.startLedger(), plan.endLedgerInclusive(), records.size());
             nextLedgerOverride = bounded.get(bounded.size() - 1).ledger() + 1;
             return records;
         } catch (RateLimitedException e) {
-            metrics.rateLimited();
-            metrics.rpcFailure(e);
             log.warn("event=rpc_rate_limited network={} message={}", config.network(), e.getMessage());
-            Thread.sleep(config.pollIntervalMs());
+            awaitNextPoll();
             return List.of();
         } catch (RpcException e) {
-            metrics.rpcFailure(e);
             log.warn("event=rpc_failure network={} message={}", config.network(), e.getMessage());
-            Thread.sleep(config.pollIntervalMs());
+            awaitNextPoll();
             return List.of();
         }
     }
 
     @Override
     public void stop() {
+        stopped = true;
+        synchronized (this) {
+            notifyAll();
+        }
         log.info("event=task_stop network={}", config == null ? "unknown" : config.network());
         if (ownsClient && rpcClient != null) {
             rpcClient.close();
@@ -140,8 +141,16 @@ public class StellarSorobanSourceTask extends SourceTask {
                 null,
                 Schema.STRING_SCHEMA,
                 eventMapper.key(config.network(), event),
-                Schema.STRING_SCHEMA,
+                null,
                 eventMapper.value(config.network(), event));
+    }
+
+    private void awaitNextPoll() throws InterruptedException {
+        synchronized (this) {
+            if (!stopped) {
+                wait(config.pollIntervalMs());
+            }
+        }
     }
 
     private Long effectiveLastProcessedLedger(Long storedLastProcessedLedger) {
@@ -173,9 +182,6 @@ public class StellarSorobanSourceTask extends SourceTask {
     }
 
     private Long lastProcessedLedger() {
-        if (context == null || context.offsetStorageReader() == null) {
-            return null;
-        }
         Map<String, Object> offset = context.offsetStorageReader().offset(sourcePartition);
         if (offset == null) {
             return null;

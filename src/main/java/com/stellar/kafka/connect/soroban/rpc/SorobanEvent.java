@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public record SorobanEvent(
+        String id,
         long ledger,
         String txHash,
         String contractId,

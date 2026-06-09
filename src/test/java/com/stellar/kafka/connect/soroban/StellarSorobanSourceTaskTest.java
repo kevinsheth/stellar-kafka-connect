@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StellarSorobanSourceTaskTest {
@@ -24,13 +25,18 @@ class StellarSorobanSourceTaskTest {
     void returnsDeterministicKeyAndOffset() throws Exception {
         FakeRpcClient rpc = new FakeRpcClient(110);
         rpc.events.add(event(100, "tx1", 0));
-        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), MetricsHooks.noop(), rpc);
+        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), rpc);
+        TestSupport.initialize(task);
         task.start(TestSupport.props());
 
         List<SourceRecord> records = task.poll();
 
         assertEquals(1, records.size());
-        assertEquals("testnet:100:tx1:0", records.get(0).key());
+        assertEquals("testnet:100-0", records.get(0).key());
+        assertNull(records.get(0).valueSchema());
+        assertEquals("testnet", ((Map<?, ?>) records.get(0).value()).get("network"));
+        assertEquals("100-0", ((Map<?, ?>) records.get(0).value()).get("id"));
+        assertEquals(100L, ((Map<?, ?>) records.get(0).value()).get("ledger"));
         assertEquals(100L, records.get(0).sourceOffset().get(StellarSorobanSourceTask.OFFSET_FIELD));
     }
 
@@ -40,7 +46,8 @@ class StellarSorobanSourceTaskTest {
             @Override public long latestLedger() throws RpcException { throw new RpcException("boom"); }
             @Override public GetEventsResponse getEvents(GetEventsRequest request) { throw new AssertionError("not called"); }
         };
-        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), MetricsHooks.noop(), rpc);
+        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), rpc);
+        TestSupport.initialize(task);
         task.start(TestSupport.props());
 
         assertTrue(task.poll().isEmpty());
@@ -50,7 +57,8 @@ class StellarSorobanSourceTaskTest {
     void emptyWindowDoesNotPersistOffsetButContinuesScanningInMemory() throws Exception {
         FakeRpcClient rpc = new FakeRpcClient(120);
         rpc.events.add(event(115, "tx1", 0));
-        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), MetricsHooks.noop(), rpc);
+        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), rpc);
+        TestSupport.initialize(task);
         task.start(TestSupport.props());
 
         assertTrue(task.poll().isEmpty());
@@ -67,14 +75,15 @@ class StellarSorobanSourceTaskTest {
         rpc.events.add(event(100, "tx1", 1));
         Map<String, String> props = TestSupport.props();
         props.put(StellarSorobanSourceConnectorConfig.MAX_RECORDS_PER_POLL, "1");
-        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), MetricsHooks.noop(), rpc);
+        StellarSorobanSourceTask task = new StellarSorobanSourceTask(mapper, new PollPlanner(), new Retry(), rpc);
+        TestSupport.initialize(task);
         task.start(props);
 
         assertTrue(task.poll().isEmpty());
     }
 
     private SorobanEvent event(long ledger, String txHash, int index) {
-        return new SorobanEvent(ledger, txHash, "CABC", index, "contract", List.of(), mapper.createObjectNode(),
+        return new SorobanEvent(ledger + "-" + index, ledger, txHash, "CABC", index, "contract", List.of(), mapper.createObjectNode(),
                 Optional.of("cursor-" + index), Optional.empty(), mapper.createObjectNode().put("ledger", ledger));
     }
 

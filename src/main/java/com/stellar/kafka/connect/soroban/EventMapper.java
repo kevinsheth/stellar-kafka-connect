@@ -1,9 +1,10 @@
 package com.stellar.kafka.connect.soroban;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.stellar.kafka.connect.soroban.rpc.SorobanEvent;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public final class EventMapper {
     private final ObjectMapper mapper;
@@ -13,26 +14,23 @@ public final class EventMapper {
     }
 
     public String key(String network, SorobanEvent event) {
-        return network + ":" + event.ledger() + ":" + event.txHash() + ":" + event.eventIndex();
+        return network + ":" + event.id();
     }
 
-    public String value(String network, SorobanEvent event) {
-        ObjectNode root = mapper.createObjectNode();
-        root.put("network", network);
-        root.put("ledger", event.ledger());
-        root.put("txHash", event.txHash());
-        root.put("contractId", event.contractId());
-        root.put("eventIndex", event.eventIndex());
-        root.put("eventType", event.eventType());
-        root.set("topics", mapper.valueToTree(event.topics()));
-        root.set("value", event.value());
-        event.pagingToken().ifPresent(token -> root.put("pagingToken", token));
-        event.closedAt().ifPresent(closedAt -> root.put("closedAt", closedAt.toString()));
-        root.set("raw", event.raw());
-        try {
-            return mapper.writeValueAsString(root);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to map Soroban event to JSON", e);
-        }
+    public Map<String, Object> value(String network, SorobanEvent event) {
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("network", network);
+        value.put("id", event.id());
+        value.put("ledger", event.ledger());
+        value.put("txHash", event.txHash());
+        value.put("contractId", event.contractId());
+        value.put("eventIndex", event.eventIndex());
+        value.put("eventType", event.eventType());
+        value.put("topics", mapper.convertValue(event.topics(), Object.class));
+        value.put("value", mapper.convertValue(event.value(), Object.class));
+        event.pagingToken().ifPresent(token -> value.put("pagingToken", token));
+        event.closedAt().ifPresent(closedAt -> value.put("closedAt", closedAt.toString()));
+        value.put("raw", mapper.convertValue(event.raw(), Object.class));
+        return value;
     }
 }

@@ -26,28 +26,12 @@ services:
       timeout: 5s
       retries: 12
 
-  stellar:
-    image: stellar/quickstart:latest
-    container_name: stellar-quickstart
-    command: ["--local", "--enable", "core,rpc"]
-    shm_size: 256m
-    ports:
-      - "8001:8000"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf -X POST http://localhost:8000/rpc -H 'content-type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getHealth\"}' | grep -q result"]
-      interval: 10s
-      timeout: 5s
-      retries: 90
-      start_period: 30s
-
   connect:
     image: confluentinc/cp-kafka-connect:7.7.0
     container_name: stellar-kafka-connect
     depends_on:
       kafka:
         condition: service_healthy
-      stellar:
-        condition: service_started
     ports:
       - "8083:8083"
     volumes:
@@ -66,7 +50,8 @@ services:
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
-      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_PLUGIN_PATH: /usr/share/connect-plugins
       CONNECT_PLUGIN_DISCOVERY: service_load
     healthcheck:
