@@ -1,0 +1,17 @@
+{
+  "name": "stellar-soroban-source",
+  "config": {
+    "connector.class": "com.stellar.kafka.connect.soroban.StellarSorobanSourceConnector",
+    "tasks.max": "1",
+    "stellar.rpc.url": "https://soroban-testnet.stellar.org",
+    "stellar.network": "testnet",
+    "stellar.start.ledger": "latest",
+    "stellar.event.types": "contract",
+    "stellar.max.ledgers.per.poll": "10",
+    "stellar.max.records.per.poll": "1000",
+    "stellar.poll.interval.ms": "5000",
+    "stellar.request.timeout.ms": "30000",
+    "stellar.retry.max.attempts": "3",
+    "topic": "stellar.soroban.events"
+  }
+}
