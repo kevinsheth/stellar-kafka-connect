@@ -8,6 +8,32 @@
     <artifactId>stellar-soroban-source-connector</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <name>Stellar Soroban Source Connector</name>
+    <description>Kafka Connect source connector for Stellar Soroban events.</description>
+    <url>https://github.com/kevinsheth/stellar-kafka-connect</url>
+
+    <developers>
+        <developer>
+            <id>kevinsheth</id>
+            <name>Kevin Sheth</name>
+            <url>https://github.com/kevinsheth</url>
+            <roles>
+                <role>Maintainer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/kevinsheth/stellar-kafka-connect.git</connection>
+        <developerConnection>scm:git:git@github.com:kevinsheth/stellar-kafka-connect.git</developerConnection>
+        <url>https://github.com/kevinsheth/stellar-kafka-connect</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/kevinsheth/stellar-kafka-connect/issues</url>
+    </issueManagement>
 
     <licenses>
         <license>
@@ -23,6 +49,7 @@
         <kafka.version>3.7.1</kafka.version>
         <jackson.version>2.17.2</jackson.version>
         <junit.version>5.10.3</junit.version>
+        <kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
     </properties>
 
     <dependencies>
@@ -111,6 +138,72 @@
                                 <copy file="${project.build.directory}/${project.build.finalName}.jar"
                                       todir="${project.build.directory}/connector-plugin" />
                             </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-connect-maven-plugin</artifactId>
+                <version>${kafka.connect.maven.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>confluent-hub-archive</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>kafka-connect</goal>
+                        </goals>
+                        <configuration>
+                            <title>Stellar Soroban Source Connector</title>
+                            <documentationUrl>https://github.com/kevinsheth/stellar-kafka-connect</documentationUrl>
+                            <description><![CDATA[Kafka Connect source connector for Stellar Soroban events. It polls Stellar RPC getEvents, tracks progress with Kafka Connect source offsets, and emits schemaless records suitable for JsonConverter with schemas disabled.]]></description>
+
+                            <ownerUsername>kevinsheth</ownerUsername>
+                            <ownerType>user</ownerType>
+                            <ownerName>Kevin Sheth</ownerName>
+                            <ownerUrl>https://github.com/kevinsheth</ownerUrl>
+
+                            <supportProviderName>Kevin Sheth</supportProviderName>
+                            <supportUrl>https://github.com/kevinsheth/stellar-kafka-connect/issues</supportUrl>
+                            <supportSummary>Community support is available through GitHub issues.</supportSummary>
+
+                            <componentTypes>
+                                <componentType>source</componentType>
+                            </componentTypes>
+
+                            <tags>
+                                <tag>stellar</tag>
+                                <tag>soroban</tag>
+                                <tag>blockchain</tag>
+                                <tag>events</tag>
+                                <tag>source</tag>
+                            </tags>
+
+                            <requirements>
+                                <requirement>Kafka Connect runtime with Java 17 or newer.</requirement>
+                                <requirement>Access to a Stellar RPC endpoint that supports getEvents.</requirement>
+                            </requirements>
+
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.basedir}/etc</directory>
+                                    <outputDirectory>etc</outputDirectory>
+                                    <includes>
+                                        <include>*.json</include>
+                                    </includes>
+                                </fileSet>
+                                <fileSet>
+                                    <directory>${project.basedir}</directory>
+                                    <outputDirectory>doc</outputDirectory>
+                                    <includes>
+                                        <include>CHANGELOG.md</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+
+                            <deliveryGuarantee>
+                                <deliveryGuarantee>atLeastOnce</deliveryGuarantee>
+                            </deliveryGuarantee>
                         </configuration>
                     </execution>
                 </executions>
