@@ -34,10 +34,10 @@ Run live public testnet RPC coverage with `mvn -Dstellar.liveTests=true -Dtest=H
 
 ## Install
 
-Extract the release archive under a Kafka Connect worker `plugin.path` directory and restart the worker:
+Download the connector archive from the [latest GitHub release](https://github.com/kevinsheth/stellar-kafka-connect/releases/latest), extract it under a Kafka Connect worker `plugin.path` directory, and restart the worker:
 
 ```bash
-unzip target/components/packages/kevinsheth-stellar-soroban-source-connector-0.1.0-SNAPSHOT.zip -d /usr/share/kafka-connect/plugins
+unzip kevinsheth-stellar-soroban-source-connector-0.1.0.zip -d /usr/share/kafka-connect/plugins
 ```
 
 Configure the worker with `JsonConverter` and schemas disabled for values:
