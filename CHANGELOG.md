@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-06-10
 
 - Initial Stellar Soroban source connector.
 - Polls Stellar RPC `getEvents` with Kafka Connect source offsets.
