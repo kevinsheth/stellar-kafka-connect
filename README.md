@@ -50,3 +50,7 @@ Check status:
 ```bash
 curl http://localhost:8083/connectors/stellar-soroban-source/status
 ```
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
