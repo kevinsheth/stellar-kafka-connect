@@ -28,7 +28,24 @@ mvn test
 mvn package
 ```
 
+The release archive is written to `target/components/packages/stellar-soroban-source-connector-<version>.zip`.
+
 Run live public testnet RPC coverage with `mvn -Dstellar.liveTests=true -Dtest=HttpStellarRpcClientLiveTest test`.
+
+## Install
+
+Extract the release archive under a Kafka Connect worker `plugin.path` directory and restart the worker:
+
+```bash
+unzip target/components/packages/stellar-soroban-source-connector-0.1.0-SNAPSHOT.zip -d /usr/share/kafka-connect/plugins
+```
+
+Configure the worker with `JsonConverter` and schemas disabled for values:
+
+```properties
+value.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter.schemas.enable=false
+```
 
 ## Docker Demo
 
