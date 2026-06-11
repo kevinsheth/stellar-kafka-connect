@@ -2,6 +2,8 @@
 
 ## 0.1.1 - Unreleased
 
+- Prepare Confluent Hub archive documentation for Marketplace distribution.
+
 ## 0.1.0 - 2026-06-10
 
 - Initial Stellar Soroban source connector.
